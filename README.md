@@ -55,32 +55,31 @@ Whenever the client application is started, it spits out one RGOOSE message. Whe
 
 # 5G latency test. Step-by-step instructions for Raspberry Pi 4
 1. Update the package index: `sudo apt-get update`
-2. Install cmake: `sudo apt-get install cmake`
-3. Install libboost libraries: `sudo apt-get install libboost-all-dev`
-4. Install ptpd deb package: `sudo apt-get install ptpd`
-   - To run ptpd in master mode : `sudo ptpd -i eth0 -E -M`
-   - To run ptpd in slave mode: `sudo ptpd -i eth0 -E -S`
+2. Install cmake, libboost, pdpd and udhcpc: `sudo apt-get install cmake libboost-all-dev ptpd udhcpc`
+3. In the "iec61850_rpi_release" directory, create new "build" directory: `sudo mkdir build`
+4. Connect USB 5G modem with Raspberry Pi 4 (do that for both client/publisher and server/subscriber devices).
+5. Disable "wwan0" interface: `sudo ip link set wwan0 down`
+6. Change interface type to "raw_ip": `echo 'Y' | sudo tee /sys/class/net/wwan0/qmi/raw_ip`
+7. Enable "wwan0" interface: `sudo ip link set wwan0 up`
+8. Initiate registration process in 5G network: `sudo qmicli -p -d /dev/cdc-wdm0 --wds-start-network="apn='5gsa.lulea',ip-type=4" --client-no-release-cid`
+   - check that connection is established successfully: `echo $?` should return 0
+   - if return is non-zero wait a minute and try again, a modem usually needs some time to register in the network
+9. Get an IP address from the network: `sudo udhcpc -q -f -i wwan0`
+10. In the "iec61850_rpi_release" create "build" directory `mkdir build`, change the directory to build: `cd build`
+11. Generate Makefile: `cmake ..`
+12. Generate binary file: `make`
+13. Connect devices over Ethernet and synchronize clocks
+    - Connect raspberry-pis with ethernet cable (Pi4 has Rx-Tx autosensing, so you don't need a cross-cable)
+    - Set IP address to ethernet interface (both devices, different IPs in the same subnet): `ifconfig eth0 192.168.3.10` netmask 255.255.255.0
+    - run ptpd in master mode : `sudo ptpd -i eth0 -E -M`
+    - run ptpd in slave mode: `sudo ptpd -i eth0 -E -s -f pdpd.log -S ptpd_statistics.log`
+    - check statistics file and make sure sync has converged `tail ptpd_statistics.log`
+   >[!NOTE]
+   > ptpd runs on eth0 interface. You need a dedicated ethernet connection between RPis for clock sync to work.
+   
 
->[!NOTE]
-> ptpd runs on eth0 interface. You need a dedicated ethernet connection between RPis for clock sync to work.
+15. Run latency test on the server/subscriber (If the server starts successfully the application prints "Server started..."): `./iec61850 server nofile`
+16. Run latency test on the client/publisher: `sudo ./iec61850 client 192.168.1.1` (use server's IP address)
+    - client sends a packet every second
+17. The server/subscriber application should print out the latency value of the package that has been received (value printed in seconds)
 
-5. In the "iec61850_rpi_release" directory, create new "build" directory: `sudo mkdir build`
-6. Connect USB 5G modem with Raspberry Pi 4 (do that for both client/publisher and server/subscriber devices).
-7. Disable "wwan0" interface: `sudo ip link set wwan0 down`
-8. Change interface type to "raw_ip": `echo 'Y' | sudo tee /sys/class/net/wwan0/qmi/raw_ip`
-9. Enable "wwan0" interface: `sudo ip link set wwan0 up`
-10. Initiate registration process in 5G network: `sudo qmicli -p -d /dev/cdc-wdm0 --device-open-net='net-raw-ip' --wds-start-network="apn='5gsa.lulea',ip-type=4" --client-no-release-cid`
-11. Get an IP address from the network: `sudo udhcpc -q -f -i wwan0`
-12. On the device that is going to be a server/subscriber during the latency test check the IP address: `ifconfig wwan0`
-13. In the "iec61850_rpi_release" directory, go to the "source" directory: cd source
-14. Open the 'main.cpp' file: `sudo nano main.cpp`
-   - To design the server/subscriber application: uncomment the 'LINUX/WINDOWS R-GOOSE SUBSCRIBER EXAMPLE' section (section 'LINUX/WINDOWS R-GOOSE PUBLISHER EXAMPLE' should be commented out).
-   - To design the client/publisher application: uncomment the 'LINUX/WINDOWS R-GOOSE PUBLISHER EXAMPLE' section (section 'LINUX/WINDOWS R-GOOSE SUBSCRIBER EXAMPLE' should be commented out). Specify the IP address of the server (the one that was shown in step 12). For 
-     that, change the second argument in the 'iec61850_publisher' function in line 36. Do not change the port number.
-15. In the "iec61850_rpi_release" directory, change the directory to build: `cd build`
-16. Generate Makefile: `sudo cmake ..`
-17. Generate binary file: `sudo make`
-18. Run latency test on the server/subscriber (If the server starts successfully the application prints "Server started..."): `sudo ./iec61850`
-19. Run latency test on the client/publisher: `sudo ./iec61850`
-20. The server/subscriber application should print out the latency value of the package that has been received (value printed in seconds)
-21. To run a series of latency tests, the server should be run once, but the "iec61850_publisher" function in the client/publisher application should be called in the loop as many times as needed.

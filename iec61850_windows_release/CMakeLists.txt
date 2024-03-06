@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 project(IEC61850_PROJ VERSION 1.0)
 
-add_executable(iec61850 source/main.cpp)
+add_executable(iec61850 ../source/main.cpp)
 
 IF (WIN32)
     FIND_PACKAGE(Boost 1.62.0 REQUIRED)

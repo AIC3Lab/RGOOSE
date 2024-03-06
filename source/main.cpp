@@ -54,7 +54,11 @@ void run_client(std::string server_ip, std::string server_port) {
 
         std::cout << "Sending packet to " << server_ip << ":" << server_port << "\n";
         iec61850_publisher.send_rgoose();
+#ifdef __linux__
+		sleep(1);
+#else
         Sleep(1);
+#endif
     }
     
 }
